@@ -39,7 +39,7 @@ function neighborhood = getNeighborhood2(img, indx, neighbor_order)
     end
         
     indx_complete(indx_complete <= 0) = NaN;
-    indx_complete(indx_complete > numel(img(:))) = NaN;
+    indx_complete(indx_complete > numel(img(:))) = NaN;    
     neighborhood = img(indx_complete)';
 
 end

@@ -178,7 +178,7 @@ strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout) + 2), tt];
 fprintf(strout)
 
 % Loop over all subjects
-for i = 1:numel(Vles{1})    
+for i = 1:numel(Vles{1})
     
     fprintf(fileID, '\n******************************\n');
     fprintf(fileID, ['Job ', num2str(i), ' of ', num2str(numel(Vles{1})), '\n']);
@@ -891,22 +891,13 @@ for i = 1:numel(Vles{1})
             % Save data to file
             if j > 1
                 fileIDData = fopen('longdata_LST.csv', 'a');
-                if viajob
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}{i}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
-                else                    
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
-                end
+                fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
                 fclose(fileIDData);
             else
                 fileIDData = fopen('longdata_LST.csv', 'wt');
                 fprintf(fileIDData, 'Subject,TimePoint,LesionNr,Vol,VolDecr,VolUnch,VolIncr\n');
-                if viajob
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}{i}.fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}{i}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);                    
-                else
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}(i).fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
-                end
+                fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}(i).fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
+                fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
                 fclose(fileIDData);
             end
             

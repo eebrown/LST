@@ -35,11 +35,12 @@ if ~viajob
     end
     if nargin == 2
         void = varargin{2};
-        thr = varargin{2};
+        %thr = varargin{2};
     end    
 else    
     job = varargin{1};    
     Vles = job.data_plm;
+    thr = job.bin_thresh;
 end
 
 if ~void
@@ -76,6 +77,12 @@ if ~void
     strout = 'Number of images to process:';
     fprintf(strout)
     tt = [num2str(numel(Vles)), '\n'];
+    strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout) + 2), tt];
+    fprintf(strout)
+    
+    strout = 'Binary threshold:';
+    fprintf(strout)
+    tt = [num2str(thr), '\n'];
     strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout) + 2), tt];
     fprintf(strout)
 end

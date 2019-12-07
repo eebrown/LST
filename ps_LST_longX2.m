@@ -1,4 +1,4 @@
-function varargout = ps_LST_longX(varargin)
+function varargout = ps_LST_longX2(varargin)
 %ps_LST_long   Longitudinal lesion segmentation.
 %   Part of the LST toolbox, www.statistical-modeling.de/lst.html
 %
@@ -178,7 +178,7 @@ strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout) + 2), tt];
 fprintf(strout)
 
 % Loop over all subjects
-for i = 1:numel(Vles{1})    
+for i = 1:numel(Vles{1})
     
     fprintf(fileID, '\n******************************\n');
     fprintf(fileID, ['Job ', num2str(i), ' of ', num2str(numel(Vles{1})), '\n']);
@@ -370,11 +370,13 @@ for i = 1:numel(Vles{1})
         fprintf(strout)
         job = ps_LST_cat12long_default(namcoreg);   
         spm_jobman('run', job);
-        %cellfun(@(x) spm_unlink(x), namc3oreg)
+        %cellfun(@(x) spm_unlink(x), namcoreg)
+        namavg = fullfile(ps_fileparts(namcoreg{1}, 1), ['avg_', ps_fileparts(namcoreg{1}, 2:3)]);
         cellfun(@(x) movefile(fullfile(ps_fileparts(x, 1), ['r' ps_fileparts(x, 2:3)]), ...
             fullfile(ps_fileparts(x, 1), ['rl' ps_fileparts(x, 2:3)])), namcoreg)        
         namcoreg = cellfun(@(x) fullfile(ps_fileparts(x, 1), ['rl' ps_fileparts(x, 2:3)]), ...
             namcoreg, 'UniformOutput', false);
+        
         fprintf(fileID, ' ok.\n'); 
         
         [~, job2] = ps_LST_lpa_preproc_default;
@@ -390,46 +392,14 @@ for i = 1:numel(Vles{1})
                 fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii']))
             copyfile(Vles_tmp{j}.fname, ...
                 fullfile(nameFolder, [ps_fileparts(Vles_tmp{j}.fname, 2), '_', num2str(j), '.nii']))
-            if 0
-                if j == 1
-                    copyfile('rtmplSpace_flairmask-T2.nii', ...
-                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2', '_', num2str(j), '.nii']))
-                else
-                    copyfile(fullfile(pthles{2}, 'rtmplSpace_flairmask-T2.nii'), ...
-                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2', '_', num2str(j), '.nii']))
-                    copyfile(fullfile(pthles{2}, 'rtmplSpace_flairmask-T2Enl.nii'), ...
-                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2Enl.nii']))
-                    copyfile(fullfile(pthles{2}, 'rtmplSpace_flairmask-T2New.nii'), ...
-                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2New.nii']))
-                end
-            end
-            job2.ref = {namcoreg{j}};
-            job2.source = {fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii'])};
-            job2.other = {fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
-                        fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
-            if 0
-                if j == 1
-                    job2.other = {fullfile(nameFolder, 'rtmplSpace_flairmask-T2_1.nii'), ...
-                        fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
-                        fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
-                else
-                    job2.other = {fullfile(nameFolder, 'rtmplSpace_flairmask-T2_2.nii'), ...
-                        fullfile(nameFolder, 'rtmplSpace_flairmask-T2Enl.nii'), ...
-                        fullfile(nameFolder, 'rtmplSpace_flairmask-T2New.nii'), ...
-                        fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
-                        fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
-                end
-            end
-            job2.roptions.interp = 0;
-            ps_LST_spm_run_coreg(job2);
-            
             job2.ref = {namcoreg{j}};
             job2.source = {fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii'])};
             %job2.other = {fullfile(pthles{j}, [namf2{j}, '.nii']), ...
             %               Vles_tmp{j}.fname, ...
             %               fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
-            job2.other = {or_namcoreg{j}};
-            job2.roptions.interp = 4;
+            job2.other = {fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
+                           fullfile(nameFolder, ['p0_', num2str(j), '.nii']), ...
+                           or_namcoreg{j}};
             ps_LST_spm_run_coreg(job2);
         
             %spm_unlink(namcoreg{j})
@@ -440,7 +410,83 @@ for i = 1:numel(Vles{1})
             %copyfile(fullfile(nameFolder, ['rl', ps_fileparts(or_namcoreg{j}, 2:3)]), pthles{j})
             Vles_tmp{j} = spm_vol(fullfile(ps_fileparts(Vles_tmp{j}.fname, 1), ['rl', namles{j}, '_', num2str(j), '.nii']));
         end        
-    end
+        
+        % Non-linear        
+        for j = 1:m
+            cd(pthles{1})
+            clear matlabbatch;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.subj.source = {namcoreg{j}};
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.subj.wtsrc = '';
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.subj.resample = {namcoreg{j}};
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.template = {namavg};
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.weight = '';
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.smosrc = 8;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.smoref = 8;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.regtype = 'mni';
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.cutoff = 25;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.nits = 16;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.eoptions.reg = 1;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.roptions.preserve = 1;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.roptions.bb = NaN(2,3);
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.roptions.vox = NaN(1,3);
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.roptions.interp = 1;
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.roptions.wrap = [0 0 0];
+            matlabbatch{1}.spm.tools.oldnorm.estwrite.roptions.prefix = 'w';
+            spm_jobman('run', matlabbatch)
+            
+            % Write deformation field            
+            clear matlabbatch
+            matlabbatch{1}.spm.util.defs.comp{1}.sn2def.matname = {[ps_fileparts(namcoreg{j}, 1:2), '_sn.mat']};
+            matlabbatch{1}.spm.util.defs.comp{1}.sn2def.vox = NaN(1, 3);
+            matlabbatch{1}.spm.util.defs.comp{1}.sn2def.bb = NaN(2,3);
+            matlabbatch{1}.spm.util.defs.out{1}.savedef.ofname = ['rt1_0', num2str(j)];
+            matlabbatch{1}.spm.util.defs.out{1}.savedef.savedir.savepwd = 1;
+            spm_jobman('run', matlabbatch)
+            
+            movefile(['y_rt1_0', num2str(j), '.nii'], fullfile(nameFolder, '.'))
+            
+            % Apply deformation fields to images
+            cd(nameFolder)
+            clear matlabbatch            
+            matlabbatch{1}.spm.util.defs.comp{1}.def = {['y_rt1_0', num2str(j), '.nii']};
+            matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {
+                ['rlp0_', num2str(j), '.nii']
+                ps_fileparts(Vles_tmp{j}.fname, 2:3)
+                                                               };
+            matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.savepwd = 1;
+            matlabbatch{1}.spm.util.defs.out{1}.pull.interp = 0;
+            matlabbatch{1}.spm.util.defs.out{1}.pull.mask = 1;
+            matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
+            spm_jobman('run', matlabbatch)
+            
+            clear matlabbatch
+            matlabbatch{1}.spm.util.defs.comp{1}.def = {['y_rt1_0', num2str(j), '.nii']};
+            matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {
+                                                               ['rl', namf2{j}, '_', num2str(j), '.nii']
+                                                               };
+            matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.savepwd = 1;
+            matlabbatch{1}.spm.util.defs.out{1}.pull.interp = 4;
+            matlabbatch{1}.spm.util.defs.out{1}.pull.mask = 1;
+            matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
+            spm_jobman('run', matlabbatch)
+
+            spm_unlink(['rlp0_', num2str(j), '.nii'])
+            spm_unlink(['rlples_lga_0.3_rmf2_', num2str(j), '.nii'])
+            spm_unlink(['rlrmf2_', num2str(j), '.nii'])
+            spm_unlink(namcoreg{j})
+
+            movefile(['wrlp0_', num2str(j), '.nii'], ['rlp0_', num2str(j), '.nii'])
+            movefile(['wrlples_lga_0.3_rmf2_', num2str(j), '.nii'], ['rlples_lga_0.3_rmf2_', num2str(j), '.nii'])
+            movefile(['wrlrmf2_', num2str(j), '.nii'], ['rlrmf2_', num2str(j), '.nii'])
+            movefile(['mw', ps_fileparts(namcoreg{j}, 2:3)], namcoreg{j})
+            
+            copyfile(['rl', namf2{j}, '_', num2str(j), '.nii'], pthles{j})
+            copyfile(['rl', namles{j}, '_', num2str(j), '.nii'], pthles{j})
+            copyfile([ps_fileparts(namcoreg{j}, 2:3)], pthles{j})
+
+        end
+                
+    end        
     
     tt = toc; tt = [num2str(round(tt)), 's'];
     strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout)), tt, '\n'];
@@ -451,7 +497,7 @@ for i = 1:numel(Vles{1})
     % Longitudinal
     % ---------------------------------------------------------------------
     
-    thrs = 0.1;
+    thrs = 0.01:.01:0.4;
     for t = 1:numel(thrs)
     
         for j = 1:numel(namf2)
@@ -481,8 +527,8 @@ for i = 1:numel(Vles{1})
                     les_01 = spm_read_vols(spm_vol(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), '.nii'])));
                     les_02 = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['l', namles{j+1}, '_', num2str(j+1), '.nii'])));
                 end
-                les_01 = 1 .* (les_01 > 0.5);
-                les_02 = 1 .* (les_02 > 0.5);
+                les_01 = 1 .* (les_01 > 0.1);
+                les_02 = 1 .* (les_02 > 0.1);
                 les_0102 = les_02 - les_01;
 
                 joint = 1 .* (les_01 > 0 | les_02 > 0);
@@ -512,7 +558,7 @@ for i = 1:numel(Vles{1})
 
                 fprintf(fileID, 'Healthy WM ...');
                 % Healthy WM
-                tmp = f2_relchange(p0_01 > 2.9 & p0_01 < 3.1 & (p0_02 > 2.9 & p0_02 < 3.1) & joint == 0);
+                tmp = f2_relchange(p0_01 > 2.9 & p0_01 < 3.1 & (p0_02 > 2.9 & p0_02 < 3.1) & joint == 0);    
                 %tmp = f2_relchange(p0_01 == 3 & (p0_02 > 2.9 & p0_02 < 3.1) & joint == 0);    
                 tmp(isnan(tmp)) = [];
                 m3 = mean(tmp);
@@ -527,20 +573,14 @@ for i = 1:numel(Vles{1})
                 thr1 = ps_qnorm(thrs(t), m3, sd3);
                 %thr2 = norminv(.9, m3, sd3);
                 thr2 = ps_qnorm(1-thrs(t), m3, sd3);
-                %change = les_0102 .* (sf2_relchange_les < thr1 | sf2_relchange_les > thr2);
-                
-                change = 2 .* (sf2_relchange_les > thr1 & sf2_relchange_les < thr2 & joint > 0);
-                change(sf2_relchange_les < thr1) = 1;
-                change(sf2_relchange_les > thr2) = 3;
-                change(les_01 > 0 & les_02 > 0) = 2;
-                
+                change = les_0102 .* (sf2_relchange_les < thr1 | sf2_relchange_les > thr2);
                 fprintf(fileID, [' ok, thr1 = ', num2str(thr1), ', thr2 = ', num2str(thr2), '.\n']);
 
                 % delete all change voxels that lie directly on CSF
                 indx_tmp = find(change ~= 0);
                 csf = 1 .* (p0_01 < 1.5 | p0_02 < 1.5);
                 csf = ps_set_border_zero(csf);
-                nh = getNeighborhood2(csf, indx_tmp, 1);
+                nh = getNeighborhood2(csf, indx_tmp, 3);
                 change(indx_tmp(sum(nh > 0) > 0)) = 0;
 
                 % Process all voxels that were identified as change
@@ -549,14 +589,11 @@ for i = 1:numel(Vles{1})
                 while ~st
                     indx_les_02 = find(les_02 > 0 & les_01 == 0 & change == 0);
                     nh = getNeighborhood2(change, indx_les_02, 1);
-                    indx_tmp = indx_les_02(sum(nh > 0) > 0 & ...
-                        abs(sf2_relchange_les(indx_les_02))' > thr2 * .75 & ...
-                        joint(indx_les_02)' > 0);
+                    indx_tmp = indx_les_02(sum(nh > 0) > 0 & abs(sf2_relchange_les(indx_les_02))' > thr2*.5 & joint(indx_les_02)' > 0);
                     if isempty(indx_tmp)
                         st = 1;
                     else
-                        %change(indx_tmp) = 1;
-                        change(indx_tmp) = 3;
+                        change(indx_tmp) = 1;
                     end
                 end
                 fprintf(fileID, ' ok ... ');
@@ -564,64 +601,28 @@ for i = 1:numel(Vles{1})
                 while ~st
                     indx_les_01 = find(les_01 > 0 & les_02 == 0 & change == 0);
                     nh = getNeighborhood2(change, indx_les_01, 1);
-                    indx_tmp = indx_les_01(sum(nh < 0) > 0 & ...
-                        abs(sf2_relchange_les(indx_les_01))' > thr1 * .75 & ...
-                        joint(indx_les_01)' > 0);
+                    indx_tmp = indx_les_01(sum(nh < 0) > 0 & abs(sf2_relchange_les(indx_les_01))' > thr1*.5 & joint(indx_les_01)' > 0);
                     if isempty(indx_tmp)
                         st = 1;
                     else
-                        %change(indx_tmp) = -1;
-                        change(indx_tmp) = 1;
-                    end
-                end
-                fprintf(fileID, ' ok.\n');
-                
-                % Process all voxels that were identified as change
-                fprintf(fileID, 'Postprocessing ...');
-                st = 0;
-                while ~st
-                    indx_les_02 = find(les_02 > 0 & les_01 == 0 & change == 2);
-                    nh = getNeighborhood2(1 .* (change > 2), indx_les_02, 1);
-                    indx_tmp = indx_les_02(sum(nh > 0) > 0 & ...
-                        abs(sf2_relchange_les(indx_les_02))' > thr2 * .75 & ...
-                        joint(indx_les_02)' > 0);
-                    if isempty(indx_tmp)
-                        st = 1;
-                    else
-                        change(indx_tmp) = 3;
-                    end
-                end
-                fprintf(fileID, ' ok ... ');
-                st = 0;
-                while ~st
-                    indx_les_01 = find(les_01 > 0 & les_02 == 0 & change == 2);
-                    nh = getNeighborhood2(1 .* (change == 1), indx_les_01, 1);
-                    indx_tmp = indx_les_01(sum(nh > 0) > 0 & ...
-                        abs(sf2_relchange_les(indx_les_01))' > thr1 * .75 & ...
-                        joint(indx_les_01)' > 0);
-                    if isempty(indx_tmp)
-                        st = 1;
-                    else
-                        change(indx_tmp) = 1;
+                        change(indx_tmp) = -1;
                     end
                 end
                 fprintf(fileID, ' ok.\n');
 
                 % Delete all lesions that are smaller than 0.01 ml
-                fprintf(fileID, 'Delete lesions that are smaller than 0.01 ml ...');
-                volfactor = abs(det(Vf2.mat(1:3,1:3))) /  1000;   
-                if 0
-                    for k = [-1,1]
-                        %b = bwconncomp(1 .* (change == k), 6);
-                        %change(cell2mat(b.PixelIdxList(cellfun(@numel, b.PixelIdxList) .* volfactor < 0.01)')) = 0;
-                        if sum(change(:) == k) > 0
-                            b = ps_bwlabeln(1 .* (change == k));
-                            if max(b(:)) > 0
-                                c_tmp = ps_count(b(b > 0));
-                                for kk = 1:size(c_tmp, 2)
-                                    if (c_tmp(2,kk) * volfactor)  < 0.01
-                                        change(b == c_tmp(1,kk)) = 0;
-                                    end
+                fprintf(fileID, 'Delete voxels that are smaller than 0.01 ml ...');
+                volfactor = abs(det(Vf2.mat(1:3,1:3))) /  1000;            
+                for k = [-1,1]
+                    %b = bwconncomp(1 .* (change == k), 6);
+                    %change(cell2mat(b.PixelIdxList(cellfun(@numel, b.PixelIdxList) .* volfactor < 0.01)')) = 0;
+                    if sum(change(:) == k) > 0
+                        b = ps_bwlabeln(1 .* (change == k));
+                        if max(b(:)) > 0
+                            c_tmp = ps_count(b(b > 0));
+                            for kk = 1:size(c_tmp, 2)
+                                if (c_tmp(2,kk) * volfactor)  < 0.01
+                                    change(b == c_tmp(1,kk)) = 0;
                                 end
                             end
                         end
@@ -632,30 +633,17 @@ for i = 1:numel(Vles{1})
 
                 fprintf(fileID, 'Create new lesion maps ...');    
 
-                if 0
-                    les_01_new = 0.*les_01;
-                    les_02_new = 0.*les_02;
-                    les_01_new(change < 0 | (les_01 > 0 & les_02 > 0)) = 1;
-                    les_02_new(change > 0 | (les_01 > 0 & les_02 > 0)) = 1;
+                les_01_new = 0.*les_01;
+                les_02_new = 0.*les_02;
+                les_01_new(change < 0 | (les_01 > 0 & les_02 > 0)) = 1;
+                les_02_new(change > 0 | (les_01 > 0 & les_02 > 0)) = 1;
 
-                    change = 0 .* les_01;
-                    change(les_01_new > 0 & les_02_new == 0) = 1;
-                    change(les_01_new > 0 & les_02_new > 0) = 2;
-                    change(les_01_new == 0 & les_02_new > 0) = 3; 
-
-                    change2 = 2 .* (sf2_relchange_les > thr1 & sf2_relchange_les < thr2 & joint > 0);
-                    change2(sf2_relchange_les < thr1) = 1;
-                    change2(sf2_relchange_les > thr2) = 3;
-                    les_01_new = 1 .* (change2 > 0 & change2 < 3);
-                    les_02_new = 1 .* (change2 > 1);
-                    change = change2;
-                end
+                change = 0 .* les_01;
+                change(les_01_new > 0 & les_02_new == 0) = 1;
+                change(les_01_new > 0 & les_02_new > 0) = 2;
+                change(les_01_new == 0 & les_02_new > 0) = 3; 
                 tmp = changes(:,:,:,j) - change;
-                if m > 2
-                    ch(j) = numel(tmp(tmp ~= 0)) < 3;
-                else 
-                    ch(j) = 1;
-                end
+                ch(j) = numel(tmp(tmp ~= 0)) < 3;
                 %ch(j) = isequal(changes(:,:,:,j), change);
                 changes(:,:,:,j) = change;
 
@@ -676,10 +664,6 @@ for i = 1:numel(Vles{1})
                 les_02_or(change == 1) = 0;
                 les_01_or(change == 0) = 0;
                 les_02_or(change == 0) = 0;
-                
-                les_01_or = 1 .* (change > 0 & change < 3);
-                les_02_or = 1 .* (change > 1);
-                
                 Vles_tmp{j}.fname = fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), extles{j}]);
                 Vles_tmp{j}.descrip = 'Probability lesion map obtained by longitudinal pipeline within LST toolbox';
                 spm_write_vol(Vles_tmp{j}, les_01_or);
@@ -691,20 +675,19 @@ for i = 1:numel(Vles{1})
 
         % save lesion change label
         for j = 1:(m-1)
-            Vles_tmp{j}.fname = fullfile(pthles{j}, ['LCL_', namles{j}, '_', namles{j+1}, '.nii']);
+            Vles_tmp{j}.fname = fullfile(pthles{j}, ['LCL_', namles{j}, '_', namles{j+1}, '_', num2str(thrs(t)), '.nii']);
             Vles_tmp{j}.descrip = ['Lesion change label for timepoint ', num2str(j), ' and ', num2str(j+1)];
             spm_write_vol(Vles_tmp{j}, changes(:,:,:,j));
         end           
     
         % Change name of images
-        if 1
-            for j = 1:m
-                movefile(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), extles{j}]), ...
-                    fullfile(pthles{j}, ['l', namles{j}, extles{j}]))
-                movefile(fullfile(pthles{j}, ['rl', namf2{j}, '_', num2str(j), '.nii']), ...
-                    fullfile(pthles{j}, ['l', namf2{j}, '.nii']))
-            end
+        for j = 1:m
+            movefile(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), extles{j}]), ...
+                fullfile(pthles{j}, ['l', namles{j}, extles{j}]))
+            movefile(fullfile(pthles{j}, ['rl', namf2{j}, '_', num2str(j), '.nii']), ...
+                fullfile(pthles{j}, ['rl', namf2{j}, '.nii']))
         end
+
 
         tt = toc; tt = ['finished after ', num2str(counter) ' iterations, ', num2str(round(tt)), 's'];
         strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout)), tt, '\n'];
@@ -741,12 +724,12 @@ for i = 1:numel(Vles{1})
                 if j == 1
                     Vimg1 = fullfile(pthles{j}, [namf2{j}, '.nii']);
                 else
-                    Vimg1 = fullfile(pthles{j}, ['l', namf2{j}, '.nii']);
+                    Vimg1 = fullfile(pthles{j}, ['rl', namf2{j}, '.nii']);
                 end
             else
-                Vimg1 = fullfile(pthles{j}, ['l', namf2{j}, '.nii']);
+                Vimg1 = fullfile(pthles{j}, ['rl', namf2{j}, '.nii']);
             end
-            Vimg2 = fullfile(pthles{j+1}, ['l', namf2{j+1}, '.nii']);
+            Vimg2 = fullfile(pthles{j+1}, ['rl', namf2{j+1}, '.nii']);
             if numel(Vimg1) < numel(Vimg2)
                 Vimg1 = [Vimg1, repmat(' ', 1, numel(Vimg2) - numel(Vimg1))];
             else
@@ -815,98 +798,38 @@ for i = 1:numel(Vles{1})
             end
             les_02_or = les_02_or .* (b > 0);
             
-            %tlv1 = sum(les_01_or(:) > .5) * volfactor;
-            %tlv2 = sum(les_02_or(:) > .5) * volfactor;    
-            joint = 0 .* les_01_or;
+            tlv1 = sum(les_01_or(:) > .5) * volfactor;
+            tlv2 = sum(les_02_or(:) > .5) * volfactor;    
+            joint = 0    .* les_01_or;
             joint(:) = max([les_01_or(:), les_02_or(:)], [], 2);
             tlv_joint = sum(joint(:) > .5) * volfactor;
             tlv_unch = sum(joint(change(:) == 2) > .5) * volfactor;
             tlv_decr = sum(joint(change(:) == 1) > .5) * volfactor;
             tlv_incr = sum(joint(change(:) == 3) > .5) * volfactor; 
                 
-            if any(joint(:) > .5)
-                b = ps_bwlabeln(1 .* (joint > .5) .* (change > 0));
-                b_count = ps_count(b(:));
-                b_count(:,find(b_count(1,:) == 0)) = [];
-                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));                
-                tlv_joint = sum(b_count(2,:) .* volfactor);
-            else
-                tlv_joint = 0;
-            end
-            
-            if any(joint(change(:) == 2) > .5)
-                b = ps_bwlabeln(1 .* (joint > .5) .* (change == 2));
-                b_count = ps_count(b(:));
-                b_count(:,find(b_count(1,:) == 0)) = [];
-                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
-                tlv_unch = sum(b_count(2,:) .* volfactor);
-            else
-                tlv_unch = 0;
-            end
-            
-            if any(joint(change(:) == 1) > .5)
-                b = ps_bwlabeln(1 .* (joint > .5) .* (change == 1));
-                b_count = ps_count(b(:));
-                b_count(:,find(b_count(1,:) == 0)) = [];
-                %b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
-                tlv_decr = sum(b_count(2,:) .* volfactor);
-            else
-                tlv_decr = 0;
-            end
-            
-            if any(joint(change(:) == 3) > .5)
-                b = ps_bwlabeln(1 .* (joint > .5) .* (change == 3));
-                b_count = ps_count(b(:));
-                b_count(:,find(b_count(1,:) == 0)) = [];
-                %b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
-                tlv_incr = sum(b_count(2,:) .* volfactor);
-            else
-                tlv_incr = 0;
-            end
-            
             if any(les_01_or(:) > .5)
                 b = ps_bwlabeln(1 .* (les_01_or > .5));
-                b_count = ps_count(b(:));
-                b_count(:,find(b_count(1,:) == 0)) = [];
-                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
-                numles_01 = size(b_count, 2);
-                tlv1 = sum(b_count(2,:) .* volfactor);
-            else                
-                numles_01 = 0;
-                tlv1 = 0;
+            else
+                b = 0 .* les_01_or;
             end
-            
+            numles_01 = max(b(:));
             if any(les_02_or(:) > .5)
                 b = ps_bwlabeln(1 .* (les_02_or > .5));
-                b_count = ps_count(b(:));
-                b_count(:,find(b_count(1,:) == 0)) = [];
-                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
-                numles_02 = size(b_count, 2);
-                tlv2 = sum(b_count(2,:) .* volfactor);
             else
-                numles_02 = 0;
-                tlv2 = 0;
-            end            
+                b = 0 .* les_02_or;
+            end
+            numles_02 = max(b(:));
             
             % Save data to file
             if j > 1
                 fileIDData = fopen('longdata_LST.csv', 'a');
-                if viajob
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}{i}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
-                else                    
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
-                end
+                fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
                 fclose(fileIDData);
             else
                 fileIDData = fopen('longdata_LST.csv', 'wt');
                 fprintf(fileIDData, 'Subject,TimePoint,LesionNr,Vol,VolDecr,VolUnch,VolIncr\n');
-                if viajob
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}{i}.fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}{i}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);                    
-                else
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}(i).fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
-                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
-                end
+                fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}.fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
+                fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
                 fclose(fileIDData);
             end
             
@@ -1273,13 +1196,13 @@ for i = 1:numel(Vles{1})
     ls = dir;
     for k = 1:numel(ls)
         if regexp(ls(k).name, '.nii', 'once')
-           %spm_unlink(ls(k).name) 
+           spm_unlink(ls(k).name) 
         end
         if regexp(ls(k).name, '.hdr', 'once')
-           %spm_unlink(ls(k).name) 
+           spm_unlink(ls(k).name) 
         end
         if regexp(ls(k).name, '.img', 'once')
-           %spm_unlink(ls(k).name) 
+           spm_unlink(ls(k).name) 
         end
     end
     

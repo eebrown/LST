@@ -1,9 +1,7 @@
-#LyX 2.3 created this file. For more info see http://www.lyx.org/
-\lyxformat 544
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
 \begin_document
 \begin_header
-\save_transient_properties true
-\origin unavailable
 \textclass paper
 \begin_preamble
 \usepackage{tocloft}
@@ -29,18 +27,16 @@ keepaspectratio]{background.jpg}%
 \language_package default
 \inputencoding auto
 \fontencoding global
-\font_roman "default" "default"
-\font_sans "default" "default"
-\font_typewriter "default" "default"
-\font_math "auto" "auto"
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_math auto
 \font_default_family sfdefault
 \use_non_tex_fonts false
 \font_sc false
 \font_osf false
-\font_sf_scale 100 100
-\font_tt_scale 100 100
-\use_microtype false
-\use_dash_ligatures true
+\font_sf_scale 100
+\font_tt_scale 100
 \graphics default
 \default_output_format default
 \output_sync 0
@@ -70,7 +66,6 @@ keepaspectratio]{background.jpg}%
 \suppress_date false
 \justification true
 \use_refstyle 1
-\use_minted 0
 \index Index
 \shortcut idx
 \color #008000
@@ -79,10 +74,7 @@ keepaspectratio]{background.jpg}%
 \tocdepth 3
 \paragraph_separation indent
 \paragraph_indentation default
-\is_math_indent 0
-\math_numbering_side default
-\quotes_style english
-\dynamic_quotes 0
+\quotes_language english
 \papercolumns 1
 \papersides 1
 \paperpagestyle default
@@ -162,7 +154,7 @@ normalsize
 
 \begin_layout Plain Layout
 
-Manual/Documentation for version 3.0.0
+Manual/Documentation for version 2.0.15
 \backslash
 
 \backslash
@@ -171,7 +163,7 @@ Manual/Documentation for version 3.0.0
 
 \begin_layout Plain Layout
 
-October 2019
+June 2017
 \backslash
 
 \backslash
@@ -397,7 +389,6 @@ Lesions were segmented by the lesion growth algorithm
 \begin_inset CommandInset citation
 LatexCommand citep
 key "schmidt2012automated"
-literal "true"
 
 \end_inset
 
@@ -426,7 +417,6 @@ Lesions were segmented by the lesion prediction algorithm
 LatexCommand citep
 after "Chapter 6.1"
 key "Schmidt2017Bayesian"
-literal "true"
 
 \end_inset
 
@@ -443,20 +433,12 @@ Here, please add information about the images you used, i.e.
 \begin_layout Standard
 If you used the longitudinal pipeline then it is best to first explain the
  independent lesion segmentation by one of the suggestions given above.
- In addition, please use something like the following paragraph:
+ You can then add something like the following:
 \end_layout
 
 \begin_layout Quote
 Segmented lesion maps of different time points were compared using the longitudi
-nal pipeline implemented in the LST toolbox 
-\begin_inset CommandInset citation
-LatexCommand citep
-key "schmidt2019automated"
-literal "false"
-
-\end_inset
-
-.
+nal pipeline implemented in the LST toolbox.
 \end_layout
 
 \begin_layout Paragraph
@@ -477,7 +459,6 @@ Lesions were segmented by the lesion growth algorithm
 \begin_inset CommandInset citation
 LatexCommand citep
 key "schmidt2012automated"
-literal "true"
 
 \end_inset
 
@@ -516,7 +497,6 @@ Lesions were segmented by the lesion prediction algorithm
 LatexCommand citep
 after "Chapter 6.1"
 key "Schmidt2017Bayesian"
-literal "true"
 
 \end_inset
 
@@ -532,7 +512,6 @@ ml) for SPM.
 \begin_inset CommandInset citation
 LatexCommand citep
 key "schmidt2012automated"
-literal "true"
 
 \end_inset
 
@@ -582,7 +561,7 @@ Currently, there are two algorithms implemented for the segmentation of
 Lesion growth algorithm (LGA)
 \begin_inset CommandInset label
 LatexCommand label
-name "subsec:LGA"
+name "sub:LGA"
 
 \end_inset
 
@@ -595,7 +574,6 @@ This section deals with the lesion growth algorithm (LGA) as presented in
 \begin_inset CommandInset citation
 LatexCommand cite
 key "schmidt2012automated"
-literal "true"
 
 \end_inset
 
@@ -625,7 +603,7 @@ Lesion segmentation by the LGA requires a T1 and a FLAIR image.
  For the latter strategy we implemented a special routine, see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "subsec:Determination-of-the"
+reference "sub:Determination-of-the"
 
 \end_inset
 
@@ -664,7 +642,7 @@ on process.
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "subsec:Merge-HTML-reports"
+reference "sub:Merge-HTML-reports"
 
 \end_inset
 
@@ -720,7 +698,7 @@ report_LST_lga_[
 Determination of the optimal initial threshold
 \begin_inset CommandInset label
 LatexCommand label
-name "subsec:Determination-of-the"
+name "sub:Determination-of-the"
 
 \end_inset
 
@@ -736,7 +714,6 @@ With this module we offer the opportunity to determine the optimal
 \begin_inset CommandInset citation
 LatexCommand cite
 key "schmidt2012automated"
-literal "true"
 
 \end_inset
 
@@ -793,7 +770,7 @@ LST_doit_[date]_[time].csv
 Lesion prediction algorithm (LPA)
 \begin_inset CommandInset label
 LatexCommand label
-name "subsec:LPA"
+name "sub:LPA"
 
 \end_inset
 
@@ -832,7 +809,7 @@ The user can choose if the results of the segmentation should be summarized
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "subsec:Merge-HTML-reports"
+reference "sub:Merge-HTML-reports"
 
 \end_inset
 
@@ -936,7 +913,7 @@ The user can choose if the results of the segmentation should be summarized
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "subsec:Merge-HTML-reports"
+reference "sub:Merge-HTML-reports"
 
 \end_inset
 
@@ -1009,7 +986,7 @@ The user can choose if the results of the filling process should be summarized
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "subsec:Merge-HTML-reports"
+reference "sub:Merge-HTML-reports"
 
 \end_inset
 
@@ -1138,7 +1115,7 @@ lbles_[binthresh]_...
 Merge HTML reports
 \begin_inset CommandInset label
 LatexCommand label
-name "subsec:Merge-HTML-reports"
+name "sub:Merge-HTML-reports"
 
 \end_inset
 

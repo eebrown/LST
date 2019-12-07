@@ -28,8 +28,8 @@ function varargout = ps_LST_lga(varargin)
 %   structure (see matlabbatch help).
 %
 %   References
-%   P. Schmidt, Gaser C., Arsic M., Buck D., Förschler A., Berthele A., 
-%   Hoshi M., Ilg R., Schmid V.J., Zimmer C., Hemmer B., and Mühlau M. An 
+%   P. Schmidt, Gaser C., Arsic M., Buck D., Fï¿½rschler A., Berthele A., 
+%   Hoshi M., Ilg R., Schmid V.J., Zimmer C., Hemmer B., and Mï¿½hlau M. An 
 %   automated tool for detec- tion of FLAIR-hyperintense white-matter 
 %   lesions in Multiple Sclerosis. NeuroImage, 59:3774?3783, 2012.
 %
@@ -353,6 +353,27 @@ for i = 1:numel(Vt1)
         % Coregister FLAIR to T1
         % ----------------------
 
+            fprintf(fileID, 'Coregistration ...');
+            strout = 'Coregister Mask to T1 ';
+            fprintf(strout)
+            tic            
+            %job.ref = {Vref{i}.fname};
+            job3.ref = {fullfile(tmpFolder, ['m', namt1, '.nii'])};
+            job3.source = {fullfile(tmpFolder, ['m', namf2, '.nii'])};
+            if exist('tmplSpace_flairmask-T2Enl.nii', 'file')
+                job3.other = {fullfile('tmplSpace_flairmask-T2.nii'),...
+                    fullfile('tmplSpace_flairmask-T2Enl.nii'), ...
+                    fullfile('tmplSpace_flairmask-T2New.nii')};
+            else
+                job3.other = {fullfile('tmplSpace_flairmask-T2.nii')};
+            end
+            job3.roptions.interp = 0;
+            ps_LST_spm_run_coreg(job3);
+            tt = toc; tt = [num2str(round(tt)), 's'];
+            strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout)), tt, '\n'];
+            fprintf(strout)
+            fprintf(fileID, ' ok.\n');
+        
         %if ~exist(['rm', namf2, '.nii'], 'file')
             fprintf(fileID, 'Coregistration ...');
             strout = 'Coregister FLAIR to T1 ';
@@ -367,6 +388,9 @@ for i = 1:numel(Vt1)
             fprintf(strout)
             fprintf(fileID, ' ok.\n');
             copyfile(fullfile(tmpFolder, ['rm', namf2, '.nii']), '.')
+            
+
+
         %else
         %    fprintf(fileID, 'Skipped coregistration.\n');
         %    fprintf('Coregistered bias corrected FLAIR image exists\n');
