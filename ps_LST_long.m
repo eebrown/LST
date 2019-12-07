@@ -1,4 +1,4 @@
-function varargout = ps_LST_long(varargin)
+function varargout = ps_LST_longX(varargin)
 %ps_LST_long   Longitudinal lesion segmentation.
 %   Part of the LST toolbox, www.statistical-modeling.de/lst.html
 %
@@ -115,12 +115,17 @@ if ~viajob
             end
             fprintf(fileID, 'ok.\n');
         else
-            fprintf(['Input for this function must either be a harvested job ', ...
-                'data structure, a numeric value, or a cell with cells of ', ...
-                'image names.\n']);                
-            fclose(fileID);
-            spm_unlink(nameLog);
-            return;
+            if iscell(varargin{1})
+                Vles = varargin{1};
+                m = numel(Vles);
+            else
+                fprintf(['Input for this function must either be a harvested job ', ...
+                    'data structure, a numeric value, or a cell with cells of ', ...
+                    'image names.\n']);                
+                fclose(fileID);
+                spm_unlink(nameLog);
+                return;
+            end
         end        
         if nargin > 1
             html_report = varargin{2};
@@ -173,7 +178,7 @@ strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout) + 2), tt];
 fprintf(strout)
 
 % Loop over all subjects
-for i = 1:numel(Vles{1})
+for i = 1:numel(Vles{1})    
     
     fprintf(fileID, '\n******************************\n');
     fprintf(fileID, ['Job ', num2str(i), ' of ', num2str(numel(Vles{1})), '\n']);
@@ -288,6 +293,8 @@ for i = 1:numel(Vles{1})
     % ---------------------------------------------------------------------
     % Filling
     % ---------------------------------------------------------------------
+    % original name of coreg images
+    or_namcoreg = namcoreg;
     
     fprintf(fileID, 'Filling ...');
     strout = 'Fill images ';
@@ -323,37 +330,117 @@ for i = 1:numel(Vles{1})
     % ---------------------------------------------------------------------
     % Coregistration
     % ---------------------------------------------------------------------
-    
-    [~, job2] = ps_LST_lpa_preproc_default;
-    fprintf(fileID, 'Coregistration ...');
-    strout = 'Coregistration ';
-    fprintf(strout)
-    tic
         
-    job2.roptions.prefix = 'rl';    
-    for j= 2:m                
-        cd(pthles{1})
-        copyfile(fullfile(pthles{j}, [namf2{j}, '.nii']), fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii']))
-        copyfile(Vles_tmp{j}.fname, fullfile(nameFolder, [ps_fileparts(Vles_tmp{j}.fname, 2), '_', num2str(j), '.nii']))
-        job2.ref = {namcoreg{1}};
-        job2.source = {namcoreg{j}};
-        %job2.other = {fullfile(pthles{j}, [namf2{j}, '.nii']), ...
-        %               Vles_tmp{j}.fname, ...
-        %               fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
-        job2.other = {fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii']), ...
-                       fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
-                       fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
-        ps_LST_spm_run_coreg(job2);
-        spm_unlink(namcoreg{j})
-        spm_unlink(fullfile(nameFolder, ['p0_', num2str(j), '.nii']))
-        copyfile(fullfile(nameFolder, ['rl', namf2{j}, '_', num2str(j), '.nii']), pthles{j})
-        copyfile(fullfile(nameFolder, ['rl', namles{j}, '_', num2str(j), '.nii']), pthles{j})
+    if 0
+        % Simple non-symmetric registration
+        [~, job2] = ps_LST_lpa_preproc_default;
+        fprintf(fileID, 'Coregistration ...');
+        strout = 'Coregistration ';
+        fprintf(strout)
+        tic
+
+        job2.roptions.prefix = 'rl';    
+        for j= 2:m                
+            cd(pthles{1})
+            copyfile(fullfile(pthles{j}, [namf2{j}, '.nii']), fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii']))
+            copyfile(Vles_tmp{j}.fname, fullfile(nameFolder, [ps_fileparts(Vles_tmp{j}.fname, 2), '_', num2str(j), '.nii']))
+            job2.ref = {namcoreg{1}};
+            job2.source = {namcoreg{j}};
+            %job2.other = {fullfile(pthles{j}, [namf2{j}, '.nii']), ...
+            %               Vles_tmp{j}.fname, ...
+            %               fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
+            job2.other = {fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii']), ...
+                           fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
+                           fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
+            ps_LST_spm_run_coreg(job2);
+            spm_unlink(namcoreg{j})
+            spm_unlink(fullfile(nameFolder, ['p0_', num2str(j), '.nii']))
+            copyfile(fullfile(nameFolder, ['rl', namf2{j}, '_', num2str(j), '.nii']), pthles{j})
+            copyfile(fullfile(nameFolder, ['rl', namles{j}, '_', num2str(j), '.nii']), pthles{j})
+        end
+        copyfile(fullfile(pthles{1}, [namles{1}, extles{1}]), fullfile(pthles{1}, ['rl', namles{1}, '_1', extles{1}]));
+        copyfile(fullfile(pthles{1}, [namf2{1}, '.nii']), fullfile(pthles{1}, ['rl', namf2{1}, '_1', '.nii']));
+        copyfile(fullfile(pthles{1}, nameFolder, 'p0_1.nii'), fullfile(pthles{1}, nameFolder, 'rlp0_1.nii'));
+        spm_unlink(fullfile(pthles{1}, nameFolder, 'p0_1.nii'));
+        
+    else
+        % longitudinal registration pipeline
+        fprintf(fileID, 'Longitudinal coregistration ...');
+        strout = 'Longitudinal rigid registration by CAT12\n';
+        fprintf(strout)
+        job = ps_LST_cat12long_default(namcoreg);   
+        spm_jobman('run', job);
+        %cellfun(@(x) spm_unlink(x), namc3oreg)
+        cellfun(@(x) movefile(fullfile(ps_fileparts(x, 1), ['r' ps_fileparts(x, 2:3)]), ...
+            fullfile(ps_fileparts(x, 1), ['rl' ps_fileparts(x, 2:3)])), namcoreg)        
+        namcoreg = cellfun(@(x) fullfile(ps_fileparts(x, 1), ['rl' ps_fileparts(x, 2:3)]), ...
+            namcoreg, 'UniformOutput', false);
+        fprintf(fileID, ' ok.\n'); 
+        
+        [~, job2] = ps_LST_lpa_preproc_default;
+        fprintf(fileID, 'Coregistration ...');
+        strout = 'Coregistration ';
+        fprintf(strout)
+        tic
+
+        job2.roptions.prefix = 'rl';    
+        for j= 1:m                
+            cd(pthles{1})
+            copyfile(fullfile(pthles{j}, [namf2{j}, '.nii']), ...
+                fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii']))
+            copyfile(Vles_tmp{j}.fname, ...
+                fullfile(nameFolder, [ps_fileparts(Vles_tmp{j}.fname, 2), '_', num2str(j), '.nii']))
+            if 0
+                if j == 1
+                    copyfile('rtmplSpace_flairmask-T2.nii', ...
+                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2', '_', num2str(j), '.nii']))
+                else
+                    copyfile(fullfile(pthles{2}, 'rtmplSpace_flairmask-T2.nii'), ...
+                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2', '_', num2str(j), '.nii']))
+                    copyfile(fullfile(pthles{2}, 'rtmplSpace_flairmask-T2Enl.nii'), ...
+                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2Enl.nii']))
+                    copyfile(fullfile(pthles{2}, 'rtmplSpace_flairmask-T2New.nii'), ...
+                        fullfile(nameFolder, ['rtmplSpace_flairmask-T2New.nii']))
+                end
+            end
+            job2.ref = {namcoreg{j}};
+            job2.source = {fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii'])};
+            job2.other = {fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
+                        fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
+            if 0
+                if j == 1
+                    job2.other = {fullfile(nameFolder, 'rtmplSpace_flairmask-T2_1.nii'), ...
+                        fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
+                        fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
+                else
+                    job2.other = {fullfile(nameFolder, 'rtmplSpace_flairmask-T2_2.nii'), ...
+                        fullfile(nameFolder, 'rtmplSpace_flairmask-T2Enl.nii'), ...
+                        fullfile(nameFolder, 'rtmplSpace_flairmask-T2New.nii'), ...
+                        fullfile(nameFolder, [namles{j}, '_', num2str(j), '.nii']), ...
+                        fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
+                end
+            end
+            job2.roptions.interp = 0;
+            ps_LST_spm_run_coreg(job2);
+            
+            job2.ref = {namcoreg{j}};
+            job2.source = {fullfile(nameFolder, [namf2{j}, '_', num2str(j), '.nii'])};
+            %job2.other = {fullfile(pthles{j}, [namf2{j}, '.nii']), ...
+            %               Vles_tmp{j}.fname, ...
+            %               fullfile(nameFolder, ['p0_', num2str(j), '.nii'])};
+            job2.other = {or_namcoreg{j}};
+            job2.roptions.interp = 4;
+            ps_LST_spm_run_coreg(job2);
+        
+            %spm_unlink(namcoreg{j})
+            %spm_unlink(fullfile(nameFolder, ['p0_', num2str(j), '.nii']))
+            %copyfile(namcoreg{j}, pthles{j})
+            copyfile(fullfile(nameFolder, ['rl', namf2{j}, '_', num2str(j), '.nii']), pthles{j})
+            copyfile(fullfile(nameFolder, ['rl', namles{j}, '_', num2str(j), '.nii']), pthles{j})
+            %copyfile(fullfile(nameFolder, ['rl', ps_fileparts(or_namcoreg{j}, 2:3)]), pthles{j})
+            Vles_tmp{j} = spm_vol(fullfile(ps_fileparts(Vles_tmp{j}.fname, 1), ['rl', namles{j}, '_', num2str(j), '.nii']));
+        end        
     end
-    
-    copyfile(fullfile(pthles{1}, [namles{1}, extles{1}]), fullfile(pthles{1}, ['rl', namles{1}, '_1', extles{1}]));
-    copyfile(fullfile(pthles{1}, [namf2{1}, '.nii']), fullfile(pthles{1}, ['rl', namf2{1}, '_1', '.nii']));
-    copyfile(fullfile(pthles{1}, nameFolder, 'p0_1.nii'), fullfile(pthles{1}, nameFolder, 'rlp0_1.nii'));
-    spm_unlink(fullfile(pthles{1}, nameFolder, 'p0_1.nii'));
     
     tt = toc; tt = [num2str(round(tt)), 's'];
     strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout)), tt, '\n'];
@@ -364,195 +451,266 @@ for i = 1:numel(Vles{1})
     % Longitudinal
     % ---------------------------------------------------------------------
     
-    fprintf(fileID, 'Load data ...');
-    strout = 'Compare time points ';
-    fprintf(strout)
-    tic
+    thrs = 0.1;
+    for t = 1:numel(thrs)
     
-    changes = zeros([Vles_tmp{1}.dim m - 1]);    
-    counter = 0;
-    ch = zeros(1, m - 1);
-    while any(ch == 0) && counter < 30
-        counter = counter + 1;
-        fprintf(fileID, '\n***********************\n');
-        fprintf(fileID, ['Iteration ', num2str(counter), '\n']);
-        fprintf(fileID, '***********************');
-        for j = 1:(m-1)
-            fprintf(fileID, ['\n*** Compare time point ', num2str(j), ' with time point ', num2str(j+1), '\n']);
-            fprintf(fileID, 'Load images ...');
-            if counter == 1
-                les_01 = spm_read_vols(spm_vol(fullfile(pthles{j}, ['rl', namles{j}, '_', num2str(j), '.nii'])));
-                les_02 = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['rl', namles{j+1}, '_', num2str(j+1), '.nii'])));
-            else
-                les_01 = spm_read_vols(spm_vol(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), '.nii'])));
-                les_02 = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['l', namles{j+1}, '_', num2str(j+1), '.nii'])));
-            end
-            les_01 = 1 .* (les_01 > 0.1);
-            les_02 = 1 .* (les_02 > 0.1);
-            les_0102 = les_02 - les_01;
+        for j = 1:numel(namf2)
+            copyfile(fullfile(nameFolder, ['rl', namf2{j}, '_', num2str(j), '.nii']), pthles{j})
+            copyfile(fullfile(nameFolder, ['rl', namles{j}, '_', num2str(j), '.nii']), pthles{j})
+        end
+        fprintf(fileID, 'Load data ...');
+        strout = 'Compare time points ';
+        fprintf(strout)
+        tic
 
-            joint = 1 .* (les_01 > 0 | les_02 > 0);
-            Vf2 = spm_vol(fullfile(pthles{j}, ['rl', namf2{j}, '_', num2str(j), '.nii']));
-            f2_01 = spm_read_vols(Vf2);
-            f2_02 = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['rl', namf2{j+1}, '_', num2str(j+1), '.nii'])));
-            p0_01 = spm_read_vols(spm_vol(fullfile(nameFolder, ['rlp0_', num2str(j), '.nii'])));
-            p0_02 = spm_read_vols(spm_vol(fullfile(nameFolder, ['rlp0_', num2str(j+1), '.nii'])));
-            p0_01(isnan(f2_01) | isnan(f2_02)) = 0;
-            p0_02(isnan(f2_01) | isnan(f2_02)) = 0;                
-            fprintf(fileID, ' ok.\n');
-
-            fprintf(fileID, 'Normalize FLAIR images ...');
-            % Normalize FLAIR    
-            tmp = f2_01((p0_01 > 1.5 & p0_01 < 2.5) | (p0_02 > 1.5 & p0_02 < 2.5) & joint < 1);
-            f2_01 = f2_01 ./ mean(tmp(~isnan(tmp)));
-            tmp = f2_02((p0_01 > 1.5 & p0_01 < 2.5) | (p0_02 > 1.5 & p0_02 < 2.5) & joint < 1);
-            f2_02 = f2_02 ./ mean(tmp(~isnan(tmp)));
-            fprintf(fileID, ' ok.\n');
-
-            fprintf(fileID, 'Relative change ...');
-            % relative change
-            f2_relchange = (f2_02 - f2_01) ./ ((f2_01 + f2_02) ./ 2);
-            f2_relchange(isinf(f2_relchange)) = NaN;
-            f2_relchange(p0_01 == 0) = 0; f2_relchange(p0_02 == 0) = 0;
-            fprintf(fileID, ' ok.\n');
-
-            fprintf(fileID, 'Healthy WM ...');
-            % Healthy WM
-            tmp = f2_relchange(p0_01 > 2.9 & p0_01 < 3.1 & (p0_02 > 2.9 & p0_02 < 3.1) & joint == 0);    
-            %tmp = f2_relchange(p0_01 == 3 & (p0_02 > 2.9 & p0_02 < 3.1) & joint == 0);    
-            tmp(isnan(tmp)) = [];
-            m3 = mean(tmp);
-            sd3 = std(tmp);
-            fprintf(fileID, [' ok, mean = ', num2str(m3), ', sd = ', num2str(sd3), '.\n']);
-
-            % Use the smoothed relchange for thresholding
-            fprintf(fileID, 'Smoothing and thresholding ...');
-            sf2_relchange_les = joint .* f2_relchange;
-            spm_smooth(sf2_relchange_les, sf2_relchange_les, [1, 1, 1] .* 2);            
-            %thr1 = norminv(.1, m3, sd3);
-            thr1 = ps_qnorm(.1, m3, sd3);
-            %thr2 = norminv(.9, m3, sd3);
-            thr2 = ps_qnorm(.9, m3, sd3);
-            change = les_0102 .* (sf2_relchange_les < thr1 | sf2_relchange_les > thr2);
-            fprintf(fileID, [' ok, thr1 = ', num2str(thr1), ', thr2 = ', num2str(thr2), '.\n']);
-
-            % delete all change voxels that lie directly on CSF
-            indx_tmp = find(change ~= 0);
-            csf = 1 .* (p0_01 < 1.5 | p0_02 < 1.5);
-            csf = ps_set_border_zero(csf);
-            nh = getNeighborhood2(csf, indx_tmp, 3);
-            change(indx_tmp(sum(nh > 0) > 0)) = 0;
-
-            % Process all voxels that were identified as change
-            fprintf(fileID, 'Postprocessing ...');
-            st = 0;
-            while ~st
-                indx_les_02 = find(les_02 > 0 & les_01 == 0 & change == 0);
-                nh = getNeighborhood2(change, indx_les_02, 1);
-                indx_tmp = indx_les_02(sum(nh > 0) > 0 & abs(sf2_relchange_les(indx_les_02))' > thr2*.5 & joint(indx_les_02)' > 0);
-                if isempty(indx_tmp)
-                    st = 1;
+        changes = zeros([Vles_tmp{1}.dim m - 1]);    
+        counter = 0;
+        ch = zeros(1, m - 1);
+        while any(ch == 0) && counter < 30
+            counter = counter + 1;
+            fprintf(fileID, '\n***********************\n');
+            fprintf(fileID, ['Iteration ', num2str(counter), '\n']);
+            fprintf(fileID, '***********************');
+            for j = 1:(m-1)
+                fprintf(fileID, ['\n*** Compare time point ', num2str(j), ' with time point ', num2str(j+1), '\n']);
+                fprintf(fileID, 'Load images ...');
+                if counter == 1
+                    les_01 = spm_read_vols(spm_vol(fullfile(pthles{j}, ['rl', namles{j}, '_', num2str(j), '.nii'])));
+                    les_02 = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['rl', namles{j+1}, '_', num2str(j+1), '.nii'])));
                 else
-                    change(indx_tmp) = 1;
+                    les_01 = spm_read_vols(spm_vol(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), '.nii'])));
+                    les_02 = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['l', namles{j+1}, '_', num2str(j+1), '.nii'])));
                 end
-            end
-            fprintf(fileID, ' ok ... ');
-            st = 0;
-            while ~st
-                indx_les_01 = find(les_01 > 0 & les_02 == 0 & change == 0);
-                nh = getNeighborhood2(change, indx_les_01, 1);
-                indx_tmp = indx_les_01(sum(nh < 0) > 0 & abs(sf2_relchange_les(indx_les_01))' > thr1*.5 & joint(indx_les_01)' > 0);
-                if isempty(indx_tmp)
-                    st = 1;
-                else
-                    change(indx_tmp) = -1;
+                les_01 = 1 .* (les_01 > 0.5);
+                les_02 = 1 .* (les_02 > 0.5);
+                les_0102 = les_02 - les_01;
+
+                joint = 1 .* (les_01 > 0 | les_02 > 0);
+                Vf2 = spm_vol(fullfile(pthles{j}, ['rl', namf2{j}, '_', num2str(j), '.nii']));
+                f2_01 = spm_read_vols(Vf2);
+                f2_02 = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['rl', namf2{j+1}, '_', num2str(j+1), '.nii'])));
+                p0_01 = spm_read_vols(spm_vol(fullfile(nameFolder, ['rlp0_', num2str(j), '.nii'])));
+                p0_02 = spm_read_vols(spm_vol(fullfile(nameFolder, ['rlp0_', num2str(j+1), '.nii'])));
+                p0_01(isnan(f2_01) | isnan(f2_02)) = 0;
+                p0_02(isnan(f2_01) | isnan(f2_02)) = 0;                
+                fprintf(fileID, ' ok.\n');
+
+                fprintf(fileID, 'Normalize FLAIR images ...');
+                % Normalize FLAIR    
+                tmp = f2_01((p0_01 > 1.5 & p0_01 < 2.5) | (p0_02 > 1.5 & p0_02 < 2.5) & joint < 1);
+                f2_01 = f2_01 ./ mean(tmp(~isnan(tmp)));
+                tmp = f2_02((p0_01 > 1.5 & p0_01 < 2.5) | (p0_02 > 1.5 & p0_02 < 2.5) & joint < 1);
+                f2_02 = f2_02 ./ mean(tmp(~isnan(tmp)));
+                fprintf(fileID, ' ok.\n');
+
+                fprintf(fileID, 'Relative change ...');
+                % relative change
+                f2_relchange = (f2_02 - f2_01) ./ ((f2_01 + f2_02) ./ 2);
+                f2_relchange(isinf(f2_relchange)) = NaN;
+                f2_relchange(p0_01 == 0) = 0; f2_relchange(p0_02 == 0) = 0;
+                fprintf(fileID, ' ok.\n');
+
+                fprintf(fileID, 'Healthy WM ...');
+                % Healthy WM
+                tmp = f2_relchange(p0_01 > 2.9 & p0_01 < 3.1 & (p0_02 > 2.9 & p0_02 < 3.1) & joint == 0);
+                %tmp = f2_relchange(p0_01 == 3 & (p0_02 > 2.9 & p0_02 < 3.1) & joint == 0);    
+                tmp(isnan(tmp)) = [];
+                m3 = mean(tmp);
+                sd3 = std(tmp);
+                fprintf(fileID, [' ok, mean = ', num2str(m3), ', sd = ', num2str(sd3), '.\n']);
+
+                % Use the smoothed relchange for thresholding
+                fprintf(fileID, 'Smoothing and thresholding ...');
+                sf2_relchange_les = joint .* f2_relchange;
+                spm_smooth(sf2_relchange_les, sf2_relchange_les, [1, 1, 1] .* 2);            
+                %thr1 = norminv(.1, m3, sd3);
+                thr1 = ps_qnorm(thrs(t), m3, sd3);
+                %thr2 = norminv(.9, m3, sd3);
+                thr2 = ps_qnorm(1-thrs(t), m3, sd3);
+                %change = les_0102 .* (sf2_relchange_les < thr1 | sf2_relchange_les > thr2);
+                
+                change = 2 .* (sf2_relchange_les > thr1 & sf2_relchange_les < thr2 & joint > 0);
+                change(sf2_relchange_les < thr1) = 1;
+                change(sf2_relchange_les > thr2) = 3;
+                change(les_01 > 0 & les_02 > 0) = 2;
+                
+                fprintf(fileID, [' ok, thr1 = ', num2str(thr1), ', thr2 = ', num2str(thr2), '.\n']);
+
+                % delete all change voxels that lie directly on CSF
+                indx_tmp = find(change ~= 0);
+                csf = 1 .* (p0_01 < 1.5 | p0_02 < 1.5);
+                csf = ps_set_border_zero(csf);
+                nh = getNeighborhood2(csf, indx_tmp, 1);
+                change(indx_tmp(sum(nh > 0) > 0)) = 0;
+
+                % Process all voxels that were identified as change
+                fprintf(fileID, 'Postprocessing ...');
+                st = 0;
+                while ~st
+                    indx_les_02 = find(les_02 > 0 & les_01 == 0 & change == 0);
+                    nh = getNeighborhood2(change, indx_les_02, 1);
+                    indx_tmp = indx_les_02(sum(nh > 0) > 0 & ...
+                        abs(sf2_relchange_les(indx_les_02))' > thr2 * .75 & ...
+                        joint(indx_les_02)' > 0);
+                    if isempty(indx_tmp)
+                        st = 1;
+                    else
+                        %change(indx_tmp) = 1;
+                        change(indx_tmp) = 3;
+                    end
                 end
-            end
-            fprintf(fileID, ' ok.\n');
-            
-            % Delete all lesions that are smaller than 0.01 ml
-            fprintf(fileID, 'Delete voxels that are smaller than 0.01 ml ...');
-            volfactor = abs(det(Vf2.mat(1:3,1:3))) /  1000;            
-            for k = [-1,1]
-                %b = bwconncomp(1 .* (change == k), 6);
-                %change(cell2mat(b.PixelIdxList(cellfun(@numel, b.PixelIdxList) .* volfactor < 0.01)')) = 0;
-                if sum(change(:) == k) > 0
-                    b = ps_bwlabeln(1 .* (change == k));
-                    if max(b(:)) > 0
-                        c_tmp = ps_count(b(b > 0));
-                        for kk = 1:size(c_tmp, 2)
-                            if (c_tmp(2,kk) * volfactor)  < 0.01
-                                change(b == c_tmp(1,kk)) = 0;
+                fprintf(fileID, ' ok ... ');
+                st = 0;
+                while ~st
+                    indx_les_01 = find(les_01 > 0 & les_02 == 0 & change == 0);
+                    nh = getNeighborhood2(change, indx_les_01, 1);
+                    indx_tmp = indx_les_01(sum(nh < 0) > 0 & ...
+                        abs(sf2_relchange_les(indx_les_01))' > thr1 * .75 & ...
+                        joint(indx_les_01)' > 0);
+                    if isempty(indx_tmp)
+                        st = 1;
+                    else
+                        %change(indx_tmp) = -1;
+                        change(indx_tmp) = 1;
+                    end
+                end
+                fprintf(fileID, ' ok.\n');
+                
+                % Process all voxels that were identified as change
+                fprintf(fileID, 'Postprocessing ...');
+                st = 0;
+                while ~st
+                    indx_les_02 = find(les_02 > 0 & les_01 == 0 & change == 2);
+                    nh = getNeighborhood2(1 .* (change > 2), indx_les_02, 1);
+                    indx_tmp = indx_les_02(sum(nh > 0) > 0 & ...
+                        abs(sf2_relchange_les(indx_les_02))' > thr2 * .75 & ...
+                        joint(indx_les_02)' > 0);
+                    if isempty(indx_tmp)
+                        st = 1;
+                    else
+                        change(indx_tmp) = 3;
+                    end
+                end
+                fprintf(fileID, ' ok ... ');
+                st = 0;
+                while ~st
+                    indx_les_01 = find(les_01 > 0 & les_02 == 0 & change == 2);
+                    nh = getNeighborhood2(1 .* (change == 1), indx_les_01, 1);
+                    indx_tmp = indx_les_01(sum(nh > 0) > 0 & ...
+                        abs(sf2_relchange_les(indx_les_01))' > thr1 * .75 & ...
+                        joint(indx_les_01)' > 0);
+                    if isempty(indx_tmp)
+                        st = 1;
+                    else
+                        change(indx_tmp) = 1;
+                    end
+                end
+                fprintf(fileID, ' ok.\n');
+
+                % Delete all lesions that are smaller than 0.01 ml
+                fprintf(fileID, 'Delete lesions that are smaller than 0.01 ml ...');
+                volfactor = abs(det(Vf2.mat(1:3,1:3))) /  1000;   
+                if 0
+                    for k = [-1,1]
+                        %b = bwconncomp(1 .* (change == k), 6);
+                        %change(cell2mat(b.PixelIdxList(cellfun(@numel, b.PixelIdxList) .* volfactor < 0.01)')) = 0;
+                        if sum(change(:) == k) > 0
+                            b = ps_bwlabeln(1 .* (change == k));
+                            if max(b(:)) > 0
+                                c_tmp = ps_count(b(b > 0));
+                                for kk = 1:size(c_tmp, 2)
+                                    if (c_tmp(2,kk) * volfactor)  < 0.01
+                                        change(b == c_tmp(1,kk)) = 0;
+                                    end
+                                end
                             end
                         end
                     end
                 end
+                clear change2;
+                fprintf(fileID, ' ok.\n');
+
+                fprintf(fileID, 'Create new lesion maps ...');    
+
+                if 0
+                    les_01_new = 0.*les_01;
+                    les_02_new = 0.*les_02;
+                    les_01_new(change < 0 | (les_01 > 0 & les_02 > 0)) = 1;
+                    les_02_new(change > 0 | (les_01 > 0 & les_02 > 0)) = 1;
+
+                    change = 0 .* les_01;
+                    change(les_01_new > 0 & les_02_new == 0) = 1;
+                    change(les_01_new > 0 & les_02_new > 0) = 2;
+                    change(les_01_new == 0 & les_02_new > 0) = 3; 
+
+                    change2 = 2 .* (sf2_relchange_les > thr1 & sf2_relchange_les < thr2 & joint > 0);
+                    change2(sf2_relchange_les < thr1) = 1;
+                    change2(sf2_relchange_les > thr2) = 3;
+                    les_01_new = 1 .* (change2 > 0 & change2 < 3);
+                    les_02_new = 1 .* (change2 > 1);
+                    change = change2;
+                end
+                tmp = changes(:,:,:,j) - change;
+                if m > 2
+                    ch(j) = numel(tmp(tmp ~= 0)) < 3;
+                else 
+                    ch(j) = 1;
+                end
+                %ch(j) = isequal(changes(:,:,:,j), change);
+                changes(:,:,:,j) = change;
+
+                % Adjust old lesion maps
+                if counter == 1
+                    les_01_or = spm_read_vols(spm_vol(fullfile(pthles{j}, ['rl', namles{j}, '_', num2str(j), '.nii'])));
+                    Vles_tmp{j+1} = spm_vol(fullfile(pthles{j+1}, ['rl', namles{j+1}, '_', num2str(j+1), '.nii']));
+                    les_02_or = spm_read_vols(Vles_tmp{j+1});
+                else
+                    les_01_or = spm_read_vols(spm_vol(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), '.nii'])));
+                    les_02_or = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['l', namles{j+1}, '_', num2str(j+1), '.nii'])));
+                end
+                les_02_or(les_02_or > 1) = 1;
+                les_or = [les_01_or(:), les_02_or(:)];
+                les_01_or(change == 2) = max(les_or(change == 2,:), [], 2);
+                les_02_or(change == 2) = max(les_or(change == 2,:), [], 2);
+                les_01_or(change == 3) = 0;
+                les_02_or(change == 1) = 0;
+                les_01_or(change == 0) = 0;
+                les_02_or(change == 0) = 0;
+                
+                les_01_or = 1 .* (change > 0 & change < 3);
+                les_02_or = 1 .* (change > 1);
+                
+                Vles_tmp{j}.fname = fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), extles{j}]);
+                Vles_tmp{j}.descrip = 'Probability lesion map obtained by longitudinal pipeline within LST toolbox';
+                spm_write_vol(Vles_tmp{j}, les_01_or);
+                Vles_tmp{j+1}.fname = fullfile(pthles{j+1}, ['l', namles{j+1}, '_', num2str(j+1), extles{j+1}]);
+                Vles_tmp{j+1}.descrip = 'Probability lesion map obtained by longitudinal pipeline within LST toolbox';            
+                spm_write_vol(Vles_tmp{j+1}, les_02_or);
             end
-            clear change2;
-            fprintf(fileID, ' ok.\n');
-
-            fprintf(fileID, 'Create new lesion maps ...');    
-
-            les_01_new = 0.*les_01;
-            les_02_new = 0.*les_02;
-            les_01_new(change < 0 | (les_01 > 0 & les_02 > 0)) = 1;
-            les_02_new(change > 0 | (les_01 > 0 & les_02 > 0)) = 1;
-
-            change = 0 .* les_01;
-            change(les_01_new > 0 & les_02_new == 0) = 1;
-            change(les_01_new > 0 & les_02_new > 0) = 2;
-            change(les_01_new == 0 & les_02_new > 0) = 3; 
-            tmp = changes(:,:,:,j) - change;
-            ch(j) = numel(tmp(tmp ~= 0)) < 3;
-            %ch(j) = isequal(changes(:,:,:,j), change);
-            changes(:,:,:,j) = change;
-            
-            % Adjust old lesion maps
-            if counter == 1
-                les_01_or = spm_read_vols(spm_vol(fullfile(pthles{j}, ['rl', namles{j}, '_', num2str(j), '.nii'])));
-                Vles_tmp{j+1} = spm_vol(fullfile(pthles{j+1}, ['rl', namles{j+1}, '_', num2str(j+1), '.nii']));
-                les_02_or = spm_read_vols(Vles_tmp{j+1});
-            else
-                les_01_or = spm_read_vols(spm_vol(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), '.nii'])));
-                les_02_or = spm_read_vols(spm_vol(fullfile(pthles{j+1}, ['l', namles{j+1}, '_', num2str(j+1), '.nii'])));
-            end
-            les_02_or(les_02_or > 1) = 1;
-            les_or = [les_01_or(:), les_02_or(:)];
-            les_01_or(change == 2) = max(les_or(change == 2,:), [], 2);
-            les_02_or(change == 2) = max(les_or(change == 2,:), [], 2);
-            les_01_or(change == 3) = 0;
-            les_02_or(change == 1) = 0;
-            les_01_or(change == 0) = 0;
-            les_02_or(change == 0) = 0;
-            Vles_tmp{j}.fname = fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), extles{j}]);
-            Vles_tmp{j}.descrip = 'Probability lesion map obtained by longitudinal pipeline within LST toolbox';
-            spm_write_vol(Vles_tmp{j}, les_01_or);
-            Vles_tmp{j+1}.fname = fullfile(pthles{j+1}, ['l', namles{j+1}, '_', num2str(j+1), extles{j+1}]);
-            Vles_tmp{j+1}.descrip = 'Probability lesion map obtained by longitudinal pipeline within LST toolbox';            
-            spm_write_vol(Vles_tmp{j+1}, les_02_or);
         end
-    end
+
+        % save lesion change label
+        for j = 1:(m-1)
+            Vles_tmp{j}.fname = fullfile(pthles{j}, ['LCL_', namles{j}, '_', namles{j+1}, '.nii']);
+            Vles_tmp{j}.descrip = ['Lesion change label for timepoint ', num2str(j), ' and ', num2str(j+1)];
+            spm_write_vol(Vles_tmp{j}, changes(:,:,:,j));
+        end           
     
-    % save lesion change label
-    for j = 1:(m-1)
-        Vles_tmp{j}.fname = fullfile(pthles{j}, ['LCL_', namles{j}, '_', namles{j+1}, '.nii']);
-        Vles_tmp{j}.descrip = ['Lesion change label for timepoint ', num2str(j), ' and ', num2str(j+1)];
-        spm_write_vol(Vles_tmp{j}, changes(:,:,:,j));
+        % Change name of images
+        if 1
+            for j = 1:m
+                movefile(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), extles{j}]), ...
+                    fullfile(pthles{j}, ['l', namles{j}, extles{j}]))
+                movefile(fullfile(pthles{j}, ['rl', namf2{j}, '_', num2str(j), '.nii']), ...
+                    fullfile(pthles{j}, ['l', namf2{j}, '.nii']))
+            end
+        end
+
+        tt = toc; tt = ['finished after ', num2str(counter) ' iterations, ', num2str(round(tt)), 's'];
+        strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout)), tt, '\n'];
+        fprintf(strout)
+        fprintf(fileID, ' ok.\n\n');               
     end
-    
-    % Change name of images
-    for j = 1:m
-        movefile(fullfile(pthles{j}, ['l', namles{j}, '_', num2str(j), extles{j}]), ...
-            fullfile(pthles{j}, ['l', namles{j}, extles{j}]))
-        movefile(fullfile(pthles{j}, ['rl', namf2{j}, '_', num2str(j), '.nii']), ...
-            fullfile(pthles{j}, ['rl', namf2{j}, '.nii']))
-    end
-    
-        
-    tt = toc; tt = ['finished after ', num2str(counter) ' iterations, ', num2str(round(tt)), 's'];
-    strout = [repmat(' ', 1, 72 - numel(tt) - numel(strout)), tt, '\n'];
-    fprintf(strout)
-    fprintf(fileID, ' ok.\n\n');               
     
     if html_report
         
@@ -567,10 +725,10 @@ for i = 1:numel(Vles{1})
         % Main HTML file
         copyfile(fullfile(spm('dir'), 'toolbox', 'LST', 'LST_main_html.html'), ['report_', nameFolder, '.html'])
         HTMLid = fopen(['report_', nameFolder, '.html'], 'at');
-        strout = ['    <script src=\"', fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'raphael.js'), '\"></script>\n', ...
-                  '    <script src=\"', fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'jquery.min.js'), '\"></script>\n', ...
-                  '    <link href=\"', fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'jquery-ui.css'), '\" rel=\"stylesheet\"></script>\n', ...
-                  '    <script src=\"', fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'jquery-ui.js'), '\"></script>\n', ...
+        strout = ['    <script src=\"', ps_fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'raphael.js'), '\"></script>\n', ...
+                  '    <script src=\"', ps_fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'jquery.min.js'), '\"></script>\n', ...
+                  '    <link href=\"', ps_fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'jquery-ui.css'), '\" rel=\"stylesheet\"></script>\n', ...
+                  '    <script src=\"', ps_fullfile(spm('dir'), 'toolbox', 'LST', 'js', 'jquery-ui.js'), '\"></script>\n', ...
                   '  </head>\n  <body>\n'];
         fprintf(HTMLid, strout);
         fprintf(fileID, ' ok.\n');      
@@ -579,12 +737,16 @@ for i = 1:numel(Vles{1})
             
         fprintf(fileID, 'Create PNGs ...');
         for j = 1:(m-1)
-            if j == 1
-                Vimg1 = fullfile(pthles{j}, [namf2{j}, '.nii']);
+            if 0
+                if j == 1
+                    Vimg1 = fullfile(pthles{j}, [namf2{j}, '.nii']);
+                else
+                    Vimg1 = fullfile(pthles{j}, ['l', namf2{j}, '.nii']);
+                end
             else
-                Vimg1 = fullfile(pthles{j}, ['rl', namf2{j}, '.nii']);
+                Vimg1 = fullfile(pthles{j}, ['l', namf2{j}, '.nii']);
             end
-            Vimg2 = fullfile(pthles{j+1}, ['rl', namf2{j+1}, '.nii']);
+            Vimg2 = fullfile(pthles{j+1}, ['l', namf2{j+1}, '.nii']);
             if numel(Vimg1) < numel(Vimg2)
                 Vimg1 = [Vimg1, repmat(' ', 1, numel(Vimg2) - numel(Vimg1))];
             else
@@ -606,17 +768,18 @@ for i = 1:numel(Vles{1})
             
             fprintf(fileID, 'Create glass brains ...');  
             change = changes(:,:,:,j);
-            % Create images for glass brains
-            ps_LST_create_glass_brain(1 .* (change == 1), ...
-                1 .* (p0_01 > 0.5 & p0_02 > 0.5), ...
-                fullfile(nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1)]), [or, fl]);
-            ps_LST_create_glass_brain(1 .* (change == 2), ...
-                1 .* (p0_01 > 0.5 & p0_02 > 0.5), ...
-                fullfile(nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1)]), [or, fl]);
-            ps_LST_create_glass_brain(1 .* (change == 3), ...
-                1 .* (p0_01 > 0.5 & p0_02 > 0.5), ...
-                fullfile(nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1)]), [or, fl]);
-                        
+            if 1
+                % Create images for glass brains
+                ps_LST_create_glass_brain(1 .* (change == 1), ...
+                    1 .* (p0_01 > 0.5 & p0_02 > 0.5), ...
+                    fullfile(nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1)]), [or, fl]);
+                ps_LST_create_glass_brain(1 .* (change == 2), ...
+                    1 .* (p0_01 > 0.5 & p0_02 > 0.5), ...
+                    fullfile(nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1)]), [or, fl]);
+                ps_LST_create_glass_brain(1 .* (change == 3), ...
+                    1 .* (p0_01 > 0.5 & p0_02 > 0.5), ...
+                    fullfile(nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1)]), [or, fl]);
+            end
             fprintf(fileID, ' ok.\n');
             
             
@@ -652,27 +815,100 @@ for i = 1:numel(Vles{1})
             end
             les_02_or = les_02_or .* (b > 0);
             
-            tlv1 = sum(les_01_or(:) > .5) * volfactor;
-            tlv2 = sum(les_02_or(:) > .5) * volfactor;    
-            joint = 0    .* les_01_or;
+            %tlv1 = sum(les_01_or(:) > .5) * volfactor;
+            %tlv2 = sum(les_02_or(:) > .5) * volfactor;    
+            joint = 0 .* les_01_or;
             joint(:) = max([les_01_or(:), les_02_or(:)], [], 2);
             tlv_joint = sum(joint(:) > .5) * volfactor;
             tlv_unch = sum(joint(change(:) == 2) > .5) * volfactor;
             tlv_decr = sum(joint(change(:) == 1) > .5) * volfactor;
             tlv_incr = sum(joint(change(:) == 3) > .5) * volfactor; 
                 
+            if any(joint(:) > .5)
+                b = ps_bwlabeln(1 .* (joint > .5) .* (change > 0));
+                b_count = ps_count(b(:));
+                b_count(:,find(b_count(1,:) == 0)) = [];
+                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));                
+                tlv_joint = sum(b_count(2,:) .* volfactor);
+            else
+                tlv_joint = 0;
+            end
+            
+            if any(joint(change(:) == 2) > .5)
+                b = ps_bwlabeln(1 .* (joint > .5) .* (change == 2));
+                b_count = ps_count(b(:));
+                b_count(:,find(b_count(1,:) == 0)) = [];
+                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
+                tlv_unch = sum(b_count(2,:) .* volfactor);
+            else
+                tlv_unch = 0;
+            end
+            
+            if any(joint(change(:) == 1) > .5)
+                b = ps_bwlabeln(1 .* (joint > .5) .* (change == 1));
+                b_count = ps_count(b(:));
+                b_count(:,find(b_count(1,:) == 0)) = [];
+                %b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
+                tlv_decr = sum(b_count(2,:) .* volfactor);
+            else
+                tlv_decr = 0;
+            end
+            
+            if any(joint(change(:) == 3) > .5)
+                b = ps_bwlabeln(1 .* (joint > .5) .* (change == 3));
+                b_count = ps_count(b(:));
+                b_count(:,find(b_count(1,:) == 0)) = [];
+                %b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
+                tlv_incr = sum(b_count(2,:) .* volfactor);
+            else
+                tlv_incr = 0;
+            end
+            
             if any(les_01_or(:) > .5)
                 b = ps_bwlabeln(1 .* (les_01_or > .5));
-            else
-                b = 0 .* les_01_or;
+                b_count = ps_count(b(:));
+                b_count(:,find(b_count(1,:) == 0)) = [];
+                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
+                numles_01 = size(b_count, 2);
+                tlv1 = sum(b_count(2,:) .* volfactor);
+            else                
+                numles_01 = 0;
+                tlv1 = 0;
             end
-            numles_01 = max(b(:));
+            
             if any(les_02_or(:) > .5)
                 b = ps_bwlabeln(1 .* (les_02_or > .5));
+                b_count = ps_count(b(:));
+                b_count(:,find(b_count(1,:) == 0)) = [];
+                b_count = b_count(:,find((b_count(2,:) .* volfactor) > 0.015));
+                numles_02 = size(b_count, 2);
+                tlv2 = sum(b_count(2,:) .* volfactor);
             else
-                b = 0 .* les_02_or;
+                numles_02 = 0;
+                tlv2 = 0;
+            end            
+            
+            % Save data to file
+            if j > 1
+                fileIDData = fopen('longdata_LST.csv', 'a');
+                if viajob
+                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}{i}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
+                else                    
+                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{j+1}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
+                end
+                fclose(fileIDData);
+            else
+                fileIDData = fopen('longdata_LST.csv', 'wt');
+                fprintf(fileIDData, 'Subject,TimePoint,LesionNr,Vol,VolDecr,VolUnch,VolIncr\n');
+                if viajob
+                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}{i}.fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
+                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}{i}.fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);                    
+                else
+                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{1}(i).fname, 1)), ',', num2str(j), ',', num2str(numles_01), ',', num2str(tlv1), ',,,\n']);
+                    fprintf(fileIDData, [ps_fullfile(ps_fileparts(Vles{2}(i).fname, 1)), ',', num2str(j+1), ',', num2str(numles_02), ',', num2str(tlv2), ',', num2str(tlv_decr), ',', num2str(tlv_unch), ',', num2str(tlv_incr), '\n']);
+                end
+                fclose(fileIDData);
             end
-            numles_02 = max(b(:));
             
             jsid = [nameFolder, '_', num2str(j), num2str(j+1)];
             jsid(regexp(jsid, '\.')) = [];
@@ -689,11 +925,11 @@ for i = 1:numel(Vles{1})
                       '        </tr>\n', ...
                       '        <tr>\n', ...
                       '          <td>Directory for t = ' num2str(j), '</td>\n', ...
-                      '          <td class=\"ta_right\">', ps_shorten_string(pthles{1}, 28), '</td>\n', ...
+                      '          <td class=\"ta_right\">', ps_shorten_string(ps_fullfile(pthles{j}), 28), '</td>\n', ...
                       '       </tr>\n', ...
                       '       <tr>\n', ...
                       '           <td>Directory for t = ' num2str(j+1), '</td>\n', ...
-                      '           <td class=\"ta_right\">', ps_shorten_string(pthles{2}, 28), '</td>\n', ...
+                      '           <td class=\"ta_right\">', ps_shorten_string(ps_fullfile(pthles{j+1}), 28), '</td>\n', ...
                       '       </tr>\n', ...
                       '       <tr>\n', ...
                       '           <td>Lesion map for t = ' num2str(j), '</td>\n', ...
@@ -753,14 +989,14 @@ for i = 1:numel(Vles{1})
                       '    <div style=\"clear:both\"></div>\n', ...
                       '    <div class=\"column-01\">\n', ...
                       '        <h2>Lesion change plot (LCP)</h2>\n', ... %'        <script src=\"', fullfile(cd, nameFolder, ['lcp_', num2str(id), '.js']), '\" type=\"text/javascript\"></script>\n', ...
-                      '        <script src=\"', fullfile(cd, nameFolder, ['lcp_', num2str(j), num2str(j+1), '.js']), '\" type=\"text/javascript\"></script>\n', ...
+                      '        <script src=\"', ps_fullfile(cd, nameFolder, ['lcp_', num2str(j), num2str(j+1), '.js']), '\" type=\"text/javascript\"></script>\n', ...
                       '        <div id=\"canvas_', nameFolder, '_', num2str(j), num2str(j+1), '\" class=\"canvas\"></div>\n', ...
                       '    </div>\n', ...
                       '    <div class=\"column-02\" style=\"vertical-align: top;\">\n', ...
                       '        <h2>Overlay</h2>\n'];
                   if strcmp(pngFailed, '')
                       strout = [strout, ...
-                          '        <img width=\"450px\" id=\"overlay', jsid, '\" src=\"', fullfile(cd, nameFolder, ['overlay_', num2str(j), '_', num2str(j+1), '_', num2str(round(mean(r))), '.png']), '\" />\n', ...
+                          '        <img width=\"450px\" id=\"overlay', jsid, '\" src=\"', ps_fullfile(cd, nameFolder, ['overlay_', num2str(j), '_', num2str(j+1), '_', num2str(round(mean(r))), '.png']), '\" />\n', ...
                           '        <div id=\"slider_', jsid, '\" style=\"width: 450px; text-align: center;\"></div>\n', ...
                           '        <div style=\"width: 450px; text-align: center;\">\n', ...
                           '           <button id=\"button-left', jsid, '\">\n', ...
@@ -782,21 +1018,21 @@ for i = 1:numel(Vles{1})
                       '  <h2>Change location</h2>\n', ...
                       '  <div class=\"column-center\">\n', ...
                       '    <h4 style=\"text-align: center\">Unchanged ', num2str(tlv_unch), ' ml</h4>\n', ...%'    <img src=\"', fullfile(cd, nameFolder, ['c22_', id, '.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1), '_2.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1), '_1.png']), '\" width=\"169.41px\" style=\"vertical-align: top;\"><br>\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1), '_3.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1), '_2.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1), '_1.png']), '\" width=\"169.41px\" style=\"vertical-align: top;\"><br>\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_unchanged_', num2str(j), '_', num2str(j+1), '_3.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
                       '  </div>\n', ...
                       '  <div class=\"column-left\">\n', ...
                       '    <h4 style=\"text-align: center\">Decrease ', num2str(tlv_decr), ' ml (', num2str(tlv_decr / tlv1 * 100, 3), '%%)</h4>\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1), '_2.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1), '_1.png']), '\" width=\"169.41px\" style=\"vertical-align: top;\"><br>\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1), '_3.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1), '_2.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1), '_1.png']), '\" width=\"169.41px\" style=\"vertical-align: top;\"><br>\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_decreased_', num2str(j), '_', num2str(j+1), '_3.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
                       '  </div>\n', ...
                       '  <div class=\"column-right\">\n', ...
                       '    <h4 style=\"text-align: center\">Increase ', num2str(tlv_incr), ' ml (', num2str(tlv_incr / tlv1 * 100, 3), '%%)</h4>\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1), '_2.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1), '_1.png']), '\" width=\"169.41px\" style=\"vertical-align: top;\"><br>\n', ...
-                      '    <img src=\"', fullfile(cd, nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1), '_3.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...               
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1), '_2.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1), '_1.png']), '\" width=\"169.41px\" style=\"vertical-align: top;\"><br>\n', ...
+                      '    <img src=\"', ps_fullfile(cd, nameFolder, ['gb_increased_', num2str(j), '_', num2str(j+1), '_3.png']), '\" width=\"120px\" style=\"vertical-align: top;\">\n', ...               
                       '    </div>\n', ...
                       '  </div>\n', ...
                       '</div>\n']; %% !!
@@ -884,7 +1120,7 @@ for i = 1:numel(Vles{1})
               '    value: slice', jsid, ',\n', ...
               '    slide: function( event, ui ) {\n', ...
               '      slice', jsid, ' = ui.value;\n', ...
-              '      $( \"#overlay', jsid, '\" ).attr(\"src\", \"', fullfile(cd, nameFolder, ['overlay_', num2str(j), '_', num2str(j+1), '_\" + ui.value + \".png\"']), ');\n', ...
+              '      $( \"#overlay', jsid, '\" ).attr(\"src\", \"', ps_fullfile(cd, nameFolder), ['/overlay_', num2str(j), '_', num2str(j+1), '_\" + ui.value + \".png\"'], ');\n', ...
               '      $( \"#slice', jsid, '\" ).text(\"Slice \" + ui.value);\n', ...
               '    }\n', ...
               '  });\n', ...
@@ -896,7 +1132,7 @@ for i = 1:numel(Vles{1})
               '    }).click(function(event, ui){\n', ...
               '        if(slice', jsid, ' > min_slice', jsid, '){\n', ...
               '            slice', jsid, ' = slice', jsid, ' - 1;\n', ...
-              '            $( \"#overlay', jsid, '\" ).attr(\"src\", \"', fullfile(cd, nameFolder, ['overlay_', num2str(j), '_', num2str(j+1), '_\" + slice', jsid, ' + \".png\"']), ');\n', ...
+              '            $( \"#overlay', jsid, '\" ).attr(\"src\", \"', ps_fullfile(cd, nameFolder), ['/overlay_', num2str(j), '_', num2str(j+1), '_\" + slice', jsid, ' + \".png\"'], ');\n', ...
               '            $( \"#slice', jsid, '\" ).text(\"Slice \" + slice', jsid, ');\n', ...
               '            $(\"#slider_', jsid, '\").slider(\"option\", "value", slice', jsid, ');\n', ...
               '        }\n', ...
@@ -909,7 +1145,7 @@ for i = 1:numel(Vles{1})
               '    }).click(function(event, ui){\n', ...
               '        if(slice', jsid, ' < max_slice', jsid, '){\n', ...
               '            slice', jsid, ' = slice', jsid, ' + 1;\n', ...
-              '            $( \"#overlay', jsid, '\").attr(\"src\", \"', fullfile(cd, nameFolder, ['overlay_', num2str(j), '_', num2str(j+1), '_\" + slice', jsid, ' + \".png\"']), ');\n', ...
+              '            $( \"#overlay', jsid, '\").attr(\"src\", \"', ps_fullfile(cd, nameFolder), ['/overlay_', num2str(j), '_', num2str(j+1), '_\" + slice', jsid, ' + \".png\"'], ');\n', ...
               '            $( \"#slice', jsid, '\").text(\"Slice \" + slice', jsid, ');\n', ...
               '            $(\"#slider_', jsid, '\").slider(\"option\", \"value\", slice', jsid, ');\n', ...
               '        }\n', ...
@@ -1010,7 +1246,7 @@ for i = 1:numel(Vles{1})
         end
            
         strout = [strout, '\n<br><hr><br>'];
-        HTMLid2 = fopen(fullfile(nameFolder, [nameFolder, '.html']), 'wt');
+        HTMLid2 = fopen(ps_fullfile(nameFolder, [nameFolder, '.html']), 'wt');
         fprintf(HTMLid2, strout);
         fclose(HTMLid2);
             
@@ -1026,7 +1262,7 @@ for i = 1:numel(Vles{1})
     end
     
     % delete some images
-    spm_unlink(fullfile(pthles{1}, ['rl', namf2{1}, '.nii']))    
+    %spm_unlink(fullfile(pthles{1}, ['rl', namf2{1}, '.nii']))    
     for j = 1:m
         spm_unlink(fullfile(pthles{j}, ['rl', namles{j}, '_', num2str(j), extles{j}]))
         spm_unlink(fullfile(nameFolder, ['rlp0_', num2str(j), '.nii']))
@@ -1037,13 +1273,13 @@ for i = 1:numel(Vles{1})
     ls = dir;
     for k = 1:numel(ls)
         if regexp(ls(k).name, '.nii', 'once')
-           spm_unlink(ls(k).name) 
+           %spm_unlink(ls(k).name) 
         end
         if regexp(ls(k).name, '.hdr', 'once')
-           spm_unlink(ls(k).name) 
+           %spm_unlink(ls(k).name) 
         end
         if regexp(ls(k).name, '.img', 'once')
-           spm_unlink(ls(k).name) 
+           %spm_unlink(ls(k).name) 
         end
     end
     

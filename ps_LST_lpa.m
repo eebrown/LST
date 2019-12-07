@@ -78,6 +78,7 @@ if ~viajob
         html_report = 1;
         if ischar(varargin{1})
             Vf2 = varargin{1};
+            Vref = [];
         else
             fprintf(fileID, 'Vf2 is not a character!');
             fprintf('Input for Vf2 must be a character, like from spm_select.\n');
@@ -116,7 +117,9 @@ end
 fprintf(fileID, 'Load volumes ... ');
 coreg = ~isempty(Vref);
 Vf2 = spm_vol(Vf2);
-Vref = spm_vol(Vref);
+if coreg
+    Vref = spm_vol(Vref);
+end
 fprintf(fileID, 'ok.\n');
 
 if coreg && ~isequal(numel(Vf2), numel(Vref))
@@ -749,12 +752,19 @@ for i = 1:numel(Vf2)
         unique(or(or > 0))
     end
     % Flip?    
-    or_ch = permute(or_ch, or);
-    c_tmp3 = indx2coord(find(or_ch == 3), size(or_ch, 1), size(or_ch, 2));
-    c_tmp4 = indx2coord(find(or_ch == 4), size(or_ch, 1), size(or_ch, 2));
-    fl =  max(c_tmp3(:,2)) > max(c_tmp4(:,2));
-    lpa.or = or;
-    lpa.fl = fl;
+    if(numel(or) > 2)
+        or_ch = permute(or_ch, or);
+        c_tmp3 = indx2coord(find(or_ch == 3), size(or_ch, 1), size(or_ch, 2));
+        c_tmp4 = indx2coord(find(or_ch == 4), size(or_ch, 1), size(or_ch, 2));
+        fl =  max(c_tmp3(:,2)) > max(c_tmp4(:,2));
+        lpa.or = or;
+        lpa.fl = fl;
+    else 
+        or = [1 2 3];
+        lpa.or = or;
+        fl = 0;
+        lpa.fl = fl;
+    end
     save(['LST_lpa_', namf2, '.mat'], 'lpa')
     fprintf(fileID, 'ok.\n');
     

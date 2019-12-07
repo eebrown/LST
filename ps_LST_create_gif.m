@@ -9,6 +9,7 @@ function [nameGIF, r] = ps_LST_create_gif(varargin)
 nonewname = 0;
 r = 0;
 or = [1 2 3];
+fl = 0;
 if nargin == 0
     V = spm_select(1, 'image', 'Select image.');
     Vover = spm_select(Inf, 'image', 'Select overlay images (optional).');
@@ -227,12 +228,13 @@ if overlay
             dims(i,:) = V(i).dim;            
         end
         
-        % Load images    
+        % Load images                   
         over = spm_read_vols(Vover);
-        if any(or ~= [1 2 3])
+        if any(or ~= [1 2 3]) && fl
             over = permute(over, or);            
             dims = [size(over); size(over)];
         end
+        
         if fl
             if exist('flip', 'builtin')
                 over = flip(over, 2);
@@ -240,7 +242,7 @@ if overlay
                 over = flipdim(over, 2);
             end
         end
-        img = zeros(dims(1,1), dims(1,2), dims(1,3), m);
+        img = zeros(dims(1,1), dims(1,2), dims(1,3), m);        
         for i = 1:m
             tmp = spm_read_vols(V(i));
             if any(or ~= [1 2 3])
@@ -271,10 +273,10 @@ if overlay
             z_tmp = r(2) - counter;
             counter = counter + 1;
             if exist('flip', 'builtin')
-                img_tmp = [flip(img(:,:,z_tmp,1)'), flip(img(:,:,z_tmp,2)'), flip(img(:,:,z_tmp,1)')];
+                img_tmp = [flip(img(:,:,z_tmp,1)'), flip(img(:,:,z_tmp,2)'), flip(img(:,:,z_tmp,2)')];
                 over_tmp = [0 .* flip(over(:,:,z_tmp)'), 0 .* flip(over(:,:,z_tmp)'), 1 .* flip(over(:,:,z_tmp)')]; 
             else
-                img_tmp = [flipdim(img(:,:,z_tmp,1)', 1), flipdim(img(:,:,z_tmp,2)', 1), flipdim(img(:,:,z_tmp,1)', 1)];
+                img_tmp = [flipdim(img(:,:,z_tmp,1)', 1), flipdim(img(:,:,z_tmp,2)', 1), flipdim(img(:,:,z_tmp,2)', 1)];
                 over_tmp = [0 .* flipdim(over(:,:,z_tmp)', 1), 0 .* flipdim(over(:,:,z_tmp)', 1), 1 .* flipdim(over(:,:,z_tmp)', 1)]; 
             end
             

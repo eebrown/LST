@@ -5,7 +5,7 @@ function varargout = ps_LST_update(varargin)
 installed = importdata(fullfile(spm('dir'), 'toolbox', 'LST', 'lst-version.txt'));
 proceed = 1;
 try
-    online = urlread('http://www.statistical-modelling.de/lst-version.txt');    
+    online = urlread('https://www.statistical-modelling.de/lst-version.txt');    
 catch
     proceed = 0;
 end

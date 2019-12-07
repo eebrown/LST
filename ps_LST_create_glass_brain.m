@@ -7,7 +7,7 @@ function ps_LST_create_glass_brain(img, b, nam, or)
             
 fl = or(end); 
 or = or(1:3);
-if any(or ~= [1 2 3])
+if any(or ~= [1 2 3]) && fl > 0
     img = permute(img, or);    
     b = permute(b, or);      
 end

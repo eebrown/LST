@@ -14,9 +14,13 @@ img = 1 .* (img ~= 0);
 img2 = img;
 nx = size(img, 1); ny = size(img, 2);
 indx = find(img ~= 0);
-indx1 = [indx - nx, indx - 1, indx + 1, indx + nx];
-indx2 = indx - nx * ny;
-indx3 = indx + nx * ny;
+%indx1 = [indx - nx, indx - 1, indx + 1, indx + nx];
+%indx2 = indx - nx * ny;
+%indx3 = indx + nx * ny;
+indx1 = [indx - nx - 1, indx - nx, indx - nx + 1, indx - 1, indx + 1, indx + nx - 1, indx + nx + 1, indx + nx];
+indx2 = [indx - nx - 1, indx - nx, indx - nx + 1, indx - 1, indx + 1, indx + nx - 1, indx + nx + 1, indx + nx, indx] - nx * ny;
+indx3 = [indx - nx - 1, indx - nx, indx - nx + 1, indx - 1, indx + 1, indx + nx - 1, indx + nx + 1, indx + nx, indx] + nx * ny;
+       
 indx_nh = [indx1, indx2, indx3]';
 
 indx_label = 0 .* indx;
@@ -24,7 +28,7 @@ indx_done = 0 .* indx;
 label = 0;
 lo = 1;
 indx_label(lo) = label;
-while any(indx_label == 0)    
+while any(indx_label == 0)
     st = 0;
     label = label + 1;
     lo = find(indx_label == 0);

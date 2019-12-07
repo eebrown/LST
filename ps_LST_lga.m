@@ -16,7 +16,7 @@ function varargout = ps_LST_lga(varargin)
 %   kappa to its default value (0.3). MRF parameter is set to 1 and, number 
 %   of maximum iterations are 50 and a HTML report is produced.
 %
-%   ps_LST_lga(Vt1, Vf2, kappa, phi, mxiter, html) performs lesion 
+%   ps_LST_lga(Vt1, Vf2, kappa, phi, maxiter, html) performs lesion 
 %   segmentation for the image volumes given in Vt1 and Vf2. Both must be 
 %   characters like a call from from spm_select. Initial thresholds are 
 %   colectedInitial in kappa, MRF parameter in phi, number of maximum 
@@ -247,8 +247,8 @@ for i = 1:numel(Vt1)
         
     % Correct directory?
     cd_tmp = cd;
-    strout = 'Current directory ';
-    if numel(cd_tmp) > (72 - numel(strout) - 5)
+    strout = 'Current directory ';    
+    if numel(cd_tmp) > ((72 - numel(strout) - 5) + 1)        
         fprintf([strout, '...', cd_tmp((end - (72 - numel(strout) - 4)):end), '\n'])
     else
         fprintf([strout, repmat(' ', 1, 72 - numel(strout) - numel(cd_tmp)), cd_tmp, '\n'])
