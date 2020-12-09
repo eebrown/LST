@@ -4,7 +4,7 @@ function spm_LST
 % Paul Schmidt, 2015/08/04
 
 addpath(fullfile(spm('dir'),'toolbox','LST'));
-rev = 'ersion 2.0.15';
+rev = 'ersion 3.0.0';
 ps_LST_update(2)
 
 SPMid = spm('FnBanner',mfilename,rev);
